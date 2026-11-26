@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnggaranKita — Anggaran Rumah Tangga Keluarga Prasetyo</title>
+<meta name="description" content="AnggaranKita: perencana anggaran, pelacak pengeluaran, tujuan tabungan, dan kalkulator keuangan untuk keluarga Indonesia.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#/">Anggaran<span>Kita</span></a>
+    <p class="tagline">Anggaran rumah tangga yang rapi, tanpa ribet.</p>
+  </div>
+</header>
+<nav class="main-nav" aria-label="Navigasi utama">
+  <div class="wrap">
+    <a class="nav-link" data-route="home" href="#/">Beranda</a>
+    <a class="nav-link" data-route="budget" href="#/anggaran">Perencana Anggaran</a>
+    <a class="nav-link" data-route="expenses" href="#/pengeluaran">Pelacak Pengeluaran</a>
+    <a class="nav-link" data-route="savings" href="#/tabungan">Tujuan Tabungan</a>
+    <a class="nav-link" data-route="calculator" href="#/kalkulator">Kalkulator</a>
+    <a class="nav-link" data-route="report" href="#/laporan">Laporan</a>
+    <a class="nav-link" data-route="guide" href="#/panduan">Panduan</a>
+  </div>
+</nav>
+<main id="app" aria-live="polite">
+  <noscript><p>AnggaranKita membutuhkan JavaScript untuk menampilkan anggaran dan menghitung angka.</p></noscript>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <p>AnggaranKita — dibuat untuk Keluarga Prasetyo, Tuban, Jawa Timur. Data contoh tersimpan di peramban Anda dan bisa diubah kapan saja.</p>
+    <p><button class="btn btn-ghost btn-small" id="reset-data" type="button">Kembalikan data contoh awal</button></p>
+  </div>
+</footer>
+<script type="module" src="main.js"></script>
+</body>
+</html>
