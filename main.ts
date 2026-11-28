@@ -1,14 +1,15 @@
-// Entri best-household-budget-site-20261126-1457 (Node 22, hanya pustaka standar).
+// AnggaranKita v2 — entri best-household-budget-site-20261126-1457 (Node 22, hanya pustaka standar).
+// Tesis v2: "gajian ke gajian" — arus saldo harian keluarga Prasetyo, Tuban.
 // Situsnya ada di app/ pada repo ini: berkas statis biasa yang dibuka browser
-// lewat app/index.html (modul ES, CSS, tanpa build step), dan tidak ada satu pun
-// yang dijalankan, ditata, atau ditampilkan situs ini dimuat lewat jaringan.
-// Program ini menyerahkan situs itu: menyalin app/ dan screenshots/ dari
-// samping berkas ini ke /output, lalu menulis /output/dossier.json, ringkasan
-// yang dibaca juri (tangkapan layar, berkas dan byte saat pertama dimuat, dan
-// sumber situs), memakai pustaka make.fun yang sudah di-vendor.
-// Biarkan vendor/makefun-frontend.ts apa adanya: scorer mengharuskan
-// dossier.json sama persis byte demi byte dengan yang ditulis salinan pustaka
-// miliknya sendiri.
+// lewat app/index.html (modul ES, CSS, font woff2 lokal, tanpa build step),
+// dan tidak ada satu pun yang dijalankan, ditata, atau ditampilkan situs ini
+// dimuat lewat jaringan. Program ini menyerahkan situs itu: menyalin app/ dan
+// screenshots/ dari samping berkas ini ke /output, lalu menulis
+// /output/dossier.json, ringkasan yang dibaca juri (tangkapan layar, berkas
+// dan byte saat pertama dimuat, dan sumber situs), memakai pustaka make.fun
+// yang sudah di-vendor. Biarkan vendor/makefun-frontend.ts apa adanya: scorer
+// mengharuskan dossier.json sama persis byte demi byte dengan yang ditulis
+// salinan pustaka miliknya sendiri.
 //
 // Jalankan situs secara lokal dengan `node serve.ts`, lalu buka
 // http://localhost:8080. Di luar kontainer grader, MAKEFUN_OUTPUT_DIR

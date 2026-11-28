@@ -1,18 +1,24 @@
-// main.js — Router hash + mount + event delegation untuk AnggaranKita.
+// main.js — Router hash + mount + event delegation AnggaranKita v2.
 
-import { loadState, saveState, resetState, formatIDR, formatPercent, addCategory, updateCategoryBudget, deleteCategory, addExpense, deleteExpense, addIncome, deleteIncome, addGoal, addFunds, deleteGoal } from './state.js';
+import {
+  loadState, saveState, resetState, formatIDR, formatCompactIDR,
+  addCategory, deleteCategory, addExpense, deleteExpense, addIncome,
+  deleteIncome, addGoal, updateGoal, deleteGoal, setMonth, setBillPaid
+} from './state.js';
 import { VIEWS } from './views.js';
-import { progressBar } from './charts.js';
 
 const app = document.getElementById('app');
 const state = loadState();
 
-// Filter halaman Pelacak Pengeluaran (disimpan di memori sesi ini).
-const expenseFilter = { categoryId: 'semua', query: '' };
+// UI sementara halaman Arus Harian (tidak disimpan): skenario tabungan,
+// potong belanja pasar, dan hari yang dipilih di kalender.
+const ui = { scenario: false, cut: 0, selectedDay: null };
 
 const ROUTES = {
   '': 'home',
   '/': 'home',
+  '/arus-harian': 'daily',
+  '/tagihan': 'bills',
   '/anggaran': 'budget',
   '/pengeluaran': 'expenses',
   '/tabungan': 'savings',
@@ -35,179 +41,166 @@ function setActiveNav(route) {
 function render() {
   const route = currentRoute();
   const view = VIEWS[route] || VIEWS.home;
-  if (route === 'expenses') {
-    app.innerHTML = view(state, expenseFilter);
-  } else {
-    app.innerHTML = view(state);
-  }
+  app.innerHTML = route === 'daily' ? view(state, ui) : view(state);
   setActiveNav(route);
-  if (route === 'calculator') initCalculator();
+  wireChartHover();
   window.scrollTo(0, 0);
 }
 
-// ---------- Kalkulator (hitung ulang saat input berubah) ----------
-
-function readNumber(id, fallback) {
-  const el = document.getElementById(id);
-  if (!el) return fallback;
-  const value = Number(el.value);
-  return Number.isFinite(value) && value >= 0 ? value : fallback;
-}
-
-function update503020() {
-  const income = readNumber('calc-income', 10300000);
-  const set = (id, value) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = formatIDR(value);
-  };
-  set('calc-need', income * 0.5);
-  set('calc-want', income * 0.3);
-  set('calc-save', income * 0.2);
-}
-
-function updateEmergency() {
-  const expense = readNumber('calc-expense', 6274000);
-  const months = readNumber('calc-months', 6);
-  const have = readNumber('calc-have', 7250000);
-  const target = expense * months;
-  const gap = Math.max(target - have, 0);
-  const pct = target > 0 ? (have / target) * 100 : 0;
-  const set = (id, value) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  };
-  set('calc-emergency-target', formatIDR(target));
-  set('calc-emergency-gap', formatIDR(gap));
-  set('calc-emergency-pct', formatPercent(pct));
-  const bar = document.getElementById('calc-emergency-bar');
-  if (bar) bar.innerHTML = progressBar(pct);
-}
-
-function updateInstallment() {
-  const principal = readNumber('calc-principal', 10000000);
-  const annualRate = readNumber('calc-rate', 12);
-  const tenor = Math.max(1, Math.round(readNumber('calc-tenor', 12)));
-  const monthlyRate = annualRate / 100 / 12;
-  let payment;
-  if (monthlyRate === 0) {
-    payment = principal / tenor;
-  } else {
-    payment = (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -tenor));
-  }
-  const totalPay = payment * tenor;
-  const totalInterest = totalPay - principal;
-  const set = (id, value) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  };
-  set('calc-installment', formatIDR(payment));
-  set('calc-total-pay', formatIDR(totalPay));
-  set('calc-total-interest', formatIDR(totalInterest));
-}
-
-function initCalculator() {
-  update503020();
-  updateEmergency();
-  updateInstallment();
-}
-
-// ---------- Aksi (event delegation) ----------
-
-function handleAction(action, target) {
-  const id = target.dataset.id;
-  if (action === 'delete-expense') {
-    if (window.confirm('Hapus pengeluaran ini?')) deleteExpense(state, id);
-  } else if (action === 'delete-category') {
-    if (window.confirm('Hapus kategori ini beserta semua pengeluarannya?')) deleteCategory(state, id);
-  } else if (action === 'delete-income') {
-    if (window.confirm('Hapus sumber pemasukan ini?')) deleteIncome(state, id);
-  } else if (action === 'delete-goal') {
-    if (window.confirm('Hapus tujuan tabungan ini?')) deleteGoal(state, id);
-  } else if (action === 'edit-budget') {
-    const current = Number(target.dataset.budget) || 0;
-    const answer = window.prompt('Anggaran baru (Rp):', String(current));
-    if (answer === null) return;
-    const value = Math.round(Number(answer.replace(/[^0-9]/g, '')) || 0);
-    if (value >= 0) updateCategoryBudget(state, id, value);
-  } else if (action === 'add-funds') {
-    const answer = window.prompt('Jumlah dana yang disetor (Rp):', '100000');
-    if (answer === null) return;
-    const value = Math.round(Number(answer.replace(/[^0-9]/g, '')) || 0);
-    if (value > 0) addFunds(state, id, value);
-  } else {
-    return;
-  }
-  render();
-}
-
-function handleForm(form) {
-  const kind = form.dataset.form;
-  const data = new FormData(form);
-  const get = (name) => String(data.get(name) || '').trim();
-  if (kind === 'add-category') {
-    if (addCategory(state, get('name'), get('budget'))) form.reset();
-  } else if (kind === 'add-expense') {
-    if (addExpense(state, { date: get('date'), categoryId: get('categoryId'), note: get('note'), amount: get('amount') })) form.reset();
-  } else if (kind === 'add-income') {
-    if (addIncome(state, get('source'), get('amount'))) form.reset();
-  } else if (kind === 'add-goal') {
-    if (addGoal(state, get('name'), get('target'), get('monthly'))) form.reset();
-  }
-  render();
-}
-
-document.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-action]');
-  if (!target) return;
-  handleAction(target.dataset.action, target);
-});
-
-document.addEventListener('submit', (event) => {
-  const form = event.target.closest('[data-form]');
-  if (!form) return;
-  event.preventDefault();
-  handleForm(form);
-});
-
-document.addEventListener('input', (event) => {
-  const el = event.target;
-  if (el.id === 'filter-category') {
-    expenseFilter.categoryId = el.value;
-    render();
-    const back = document.getElementById('filter-category');
-    if (back) back.focus();
-  } else if (el.id === 'filter-query') {
-    expenseFilter.query = el.value;
-    render();
-    const back = document.getElementById('filter-query');
-    if (back) {
-      back.focus();
-      back.setSelectionRange(back.value.length, back.value.length);
-    }
-  } else if (el.id && el.id.indexOf('calc-') === 0) {
-    if (el.id === 'calc-income') update503020();
-    if (el.id === 'calc-expense' || el.id === 'calc-months' || el.id === 'calc-have') updateEmergency();
-    if (el.id === 'calc-principal' || el.id === 'calc-rate' || el.id === 'calc-tenor') updateInstallment();
-  }
-});
-
-window.addEventListener('hashchange', render);
-
-// Tombol reset data (di footer) — kembalikan data contoh awal.
-const resetButton = document.getElementById('reset-data');
-if (resetButton) {
-  resetButton.addEventListener('click', () => {
-    if (window.confirm('Kembalikan semua data ke contoh awal Keluarga Prasetyo?')) {
-      const fresh = resetState();
-      state.income = fresh.income;
-      state.categories = fresh.categories;
-      state.expenses = fresh.expenses;
-      state.goals = fresh.goals;
-      expenseFilter.categoryId = 'semua';
-      expenseFilter.query = '';
-      render();
-    }
+// Hover crosshair + tooltip pada line chart saldo harian.
+function wireChartHover() {
+  document.querySelectorAll('.chart-wrap').forEach((wrap) => {
+    const svg = wrap.querySelector('svg.daily-line');
+    const tip = wrap.querySelector('.chart-tip');
+    const cross = wrap.querySelector('.crosshair');
+    if (!svg || !tip) return;
+    svg.addEventListener('mousemove', (event) => {
+      const target = event.target.closest('.dot');
+      if (!target) { tip.hidden = true; if (cross) cross.setAttribute('opacity', '0'); return; }
+      const day = target.getAttribute('data-day');
+      const balance = Number(target.getAttribute('data-balance'));
+      const income = Number(target.getAttribute('data-income'));
+      const expense = Number(target.getAttribute('data-expense'));
+      tip.innerHTML = '<strong>Hari ' + day + '</strong> · Saldo ' + formatIDR(balance)
+        + (income > 0 ? '<br>Masuk ' + formatIDR(income) : '')
+        + (expense > 0 ? '<br>Keluar ' + formatIDR(expense) : '');
+      tip.hidden = false;
+      const rect = wrap.getBoundingClientRect();
+      tip.style.left = Math.min(Math.max(event.clientX - rect.left + 12, 8), rect.width - 180) + 'px';
+      tip.style.top = Math.max(event.clientY - rect.top - 10, 8) + 'px';
+      if (cross) {
+        cross.setAttribute('x1', target.getAttribute('cx'));
+        cross.setAttribute('x2', target.getAttribute('cx'));
+        cross.setAttribute('opacity', '1');
+      }
+    });
+    svg.addEventListener('mouseleave', () => {
+      tip.hidden = true;
+      if (cross) cross.setAttribute('opacity', '0');
+    });
   });
 }
 
+function formValues(form) {
+  return Object.fromEntries(new FormData(form).entries());
+}
+function num(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function runCalculator(form) {
+  const kind = form.dataset.calc;
+  const values = formValues(form);
+  const result = form.parentElement.querySelector('[data-result]');
+  if (!result) return;
+  if (kind === 'fifty') {
+    const income = num(values.income);
+    result.innerHTML = '<p>Kebutuhan (50%): <strong>' + formatIDR(income * 0.5) + '</strong></p>'
+      + '<p>Keinginan (30%): <strong>' + formatIDR(income * 0.3) + '</strong></p>'
+      + '<p>Tabungan (20%): <strong>' + formatIDR(income * 0.2) + '</strong></p>';
+  } else if (kind === 'emergency') {
+    const target = num(values.expense) * 6;
+    const remaining = target - num(values.saved);
+    const months = num(values.monthly) > 0 ? Math.ceil(remaining / num(values.monthly)) : null;
+    result.innerHTML = '<p>Target dana darurat (6 bulan pengeluaran): <strong>' + formatIDR(target) + '</strong></p>'
+      + '<p>Kekurangan: <strong>' + formatIDR(Math.max(remaining, 0)) + '</strong></p>'
+      + '<p>' + (remaining <= 0 ? 'Target sudah tercapai.' : months === null ? 'Isi setoran per bulan.' : 'Perkiraan tercapai dalam <strong>' + months + ' bulan</strong> dengan setoran ' + formatIDR(num(values.monthly)) + ' per bulan.') + '</p>';
+  } else if (kind === 'loan') {
+    const principal = Math.max(num(values.price) - num(values.down), 0);
+    const monthlyRate = num(values.rate) / 100 / 12;
+    const months = Math.max(num(values.months), 1);
+    const payment = monthlyRate > 0
+      ? (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months))
+      : principal / months;
+    const limit = num(values.income) * 0.3;
+    result.innerHTML = '<p>Cicilan per bulan: <strong>' + formatIDR(payment) + '</strong></p>'
+      + '<p>Total dibayar: <strong>' + formatIDR(payment * months) + '</strong> (pokok ' + formatIDR(principal) + ' + bunga ' + formatIDR(payment * months - principal) + ')</p>'
+      + '<p>Batas aman (30% pemasukan): <strong>' + formatIDR(limit) + '</strong> — '
+      + (payment <= limit ? 'cicilan ini masih aman.' : 'cicilan ini di atas batas aman, pertimbangkan DP lebih besar atau tenor lebih panjang.') + '</p>';
+  }
+}
+
+document.addEventListener('submit', (event) => {
+  const form = event.target;
+  if (!form || !form.dataset) return;
+  event.preventDefault();
+  const values = formValues(form);
+  if (form.dataset.form === 'add-income') {
+    addIncome(state, { source: values.source.trim(), amount: num(values.amount) });
+  } else if (form.dataset.form === 'add-expense') {
+    addExpense(state, { date: values.date, note: values.note.trim(), categoryId: values.categoryId, amount: num(values.amount) });
+  } else if (form.dataset.form === 'add-category') {
+    addCategory(state, { name: values.name.trim(), budget: num(values.budget) });
+  } else if (form.dataset.form === 'add-goal') {
+    addGoal(state, { name: values.name.trim(), target: num(values.target), saved: num(values.saved), monthly: num(values.monthly) });
+  } else if (form.dataset.form === 'edit-goal') {
+    updateGoal(state, form.dataset.id, { name: values.name.trim(), target: num(values.target), saved: num(values.saved), monthly: num(values.monthly) });
+  } else if (form.dataset.calc) {
+    runCalculator(form);
+    return;
+  } else {
+    return;
+  }
+  saveState(state);
+  render();
+});
+
+document.addEventListener('click', (event) => {
+  const el = event.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  if (action === 'switch-month') {
+    setMonth(state, el.dataset.month);
+    ui.selectedDay = null;
+    saveState(state);
+    render();
+  } else if (action === 'toggle-scenario') {
+    ui.scenario = el.checked;
+    render();
+  } else if (action === 'select-day') {
+    ui.selectedDay = Number(el.dataset.day);
+    render();
+  } else if (action === 'toggle-bill') {
+    setBillPaid(state, el.dataset.id, !state.billsPaid[el.dataset.id]);
+    saveState(state);
+    render();
+  } else if (action === 'delete-income') {
+    deleteIncome(state, el.dataset.id);
+    saveState(state);
+    render();
+  } else if (action === 'delete-expense') {
+    deleteExpense(state, el.dataset.id);
+    saveState(state);
+    render();
+  } else if (action === 'delete-category') {
+    deleteCategory(state, el.dataset.id);
+    saveState(state);
+    render();
+  } else if (action === 'delete-goal') {
+    deleteGoal(state, el.dataset.id);
+    saveState(state);
+    render();
+  } else if (action === 'reset-data') {
+    resetState();
+    Object.assign(state, loadState());
+    ui.scenario = false;
+    ui.cut = 0;
+    ui.selectedDay = null;
+    render();
+  }
+});
+
+// Slider what-if: input langsung (bukan klik) supaya chart ikut bergerak.
+document.addEventListener('input', (event) => {
+  const el = event.target.closest('[data-action="set-cut"]');
+  if (!el) return;
+  ui.cut = Number(el.value);
+  render();
+  // Kembalikan fokus ke slider setelah render ulang.
+  const again = document.querySelector('[data-action="set-cut"]');
+  if (again) again.focus();
+});
+
+window.addEventListener('hashchange', render);
 render();
